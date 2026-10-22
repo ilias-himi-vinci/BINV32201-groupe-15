@@ -96,4 +96,29 @@ describe("GET /offers : visibilité selon le profil", () => {
       ["academicYear", "companyShortName", "id", "period", "status", "title"],
     );
   });
+
+  it("filtre les offres par période sans élargir la visibilité", async () => {
+    const adminResponse = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+      .query({ period: "P1" });
+    const studentResponse = await listOffersAs("STUDENT", STUDENT.LUCAS_DUPONT)
+      .query({ period: "P2" });
+
+    expect(adminResponse.status).toBe(200);
+    expect(adminResponse.body).toHaveLength(1);
+    expect(adminResponse.body.every((offer: { period: string }) => offer.period === "P1")).toBe(true);
+    expect(offerIds(studentResponse.body)).toEqual([
+      OFFER.INTERNAL_CHATBOT,
+      OFFER.DATA_QUALITY,
+      OFFER.FLEET_APP,
+      OFFER.BILLING_API,
+    ]);
+    expect(studentResponse.body.every((offer: { period: string }) => offer.period === "P2")).toBe(true);
+  });
+
+  it.each(["UNKNOWN", ""])("refuse une période inconnue (%s) (400)", async (period) => {
+    const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ).query({ period });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_QUERY");
+  });
 });
