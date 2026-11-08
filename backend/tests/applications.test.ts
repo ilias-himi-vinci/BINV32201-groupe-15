@@ -1,6 +1,6 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
-import { OFFER, STUDENT } from "../src/db/seed/seedIds.ts";
+import { APPLICATION, OFFER, STUDENT } from "../src/db/seed/seedIds.ts";
 import { createTestDatabase } from "./helpers/testDatabase.ts";
 import { createTestApp, tokenFor } from "./helpers/testApp.ts";
 
@@ -112,5 +112,55 @@ describe("GET /applications", () => {
 
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("FORBIDDEN");
+  });
+});
+
+describe("PATCH /applications/:id/withdraw", () => {
+  it("retire une candidature en cours sans la supprimer", async () => {
+    const response = await request(app)
+      .patch(`/applications/${APPLICATION.LUCAS_FLEET_APP}/withdraw`)
+      .set("Authorization", tokenFor("STUDENT", STUDENT.LUCAS_DUPONT));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      id: APPLICATION.LUCAS_FLEET_APP,
+      status: "WITHDRAWN",
+    });
+    expect(
+      db.prepare("SELECT status FROM applications WHERE id = ?").get(APPLICATION.LUCAS_FLEET_APP),
+    ).toEqual({ status: "WITHDRAWN" });
+  });
+
+  it("refuse le retrait par un autre étudiant", async () => {
+    const response = await request(app)
+      .patch(`/applications/${APPLICATION.LUCAS_FLEET_APP}/withdraw`)
+      .set("Authorization", tokenFor("STUDENT", STUDENT.MATEUSZ_KOWALSKI));
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("FORBIDDEN");
+  });
+
+  it.each([
+    ["SELECTED", APPLICATION.MATEUSZ_CLOUD_MIGRATION, STUDENT.MATEUSZ_KOWALSKI],
+    ["REJECTED", 4, STUDENT.LEA_MERTENS],
+    ["WITHDRAWN", APPLICATION.INES_BILLING_API, STUDENT.INES_HADDAD],
+  ])("refuse une candidature %s", async (_status, applicationId, studentId) => {
+    const response = await request(app)
+      .patch(`/applications/${applicationId}/withdraw`)
+      .set("Authorization", tokenFor("STUDENT", studentId));
+
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("APPLICATION_NOT_WITHDRAWABLE");
+  });
+
+  it("permet une nouvelle candidature après le retrait", async () => {
+    await request(app)
+      .patch(`/applications/${APPLICATION.LUCAS_FLEET_APP}/withdraw`)
+      .set("Authorization", tokenFor("STUDENT", STUDENT.LUCAS_DUPONT));
+
+    const response = await applyAs(STUDENT.LUCAS_DUPONT, { offerId: OFFER.FLEET_APP });
+
+    expect(response.status).toBe(201);
+    expect(response.body.id).not.toBe(APPLICATION.LUCAS_FLEET_APP);
   });
 });

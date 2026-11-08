@@ -8,6 +8,12 @@ export type CreateApplicationResult =
   | { kind: "offer_not_published" }
   | { kind: "duplicate" };
 
+export type WithdrawApplicationResult =
+  | { kind: "withdrawn"; application: ApplicationDbo }
+  | { kind: "not_found" }
+  | { kind: "forbidden" }
+  | { kind: "not_in_progress" };
+
 interface ApplicationParams {
   offerId: number;
   studentId: number;
@@ -38,6 +44,15 @@ export const createApplicationsRepository = (db: Db) => {
     WHERE a.student_id = @studentId
     ORDER BY datetime(a.applied_at) DESC, a.id DESC
   `);
+  const findById = db.prepare<{ id: number }, { student_id: number; status: string }>(
+    "SELECT student_id, status FROM applications WHERE id = @id",
+  );
+  const withdraw = db.prepare<{ id: number }, ApplicationDbo>(`
+    UPDATE applications
+    SET status = 'WITHDRAWN'
+    WHERE id = @id
+    RETURNING id, offer_id, student_id, message, status, applied_at
+  `);
 
   const create = db.transaction((params: ApplicationParams): CreateApplicationResult => {
     const offer = findOffer.get({ offerId: params.offerId });
@@ -47,9 +62,19 @@ export const createApplicationsRepository = (db: Db) => {
 
     return { kind: "created", application: insert.get(params) as ApplicationDbo };
   });
+  const withdrawApplication = db.transaction(
+    (id: number, studentId: number): WithdrawApplicationResult => {
+      const application = findById.get({ id });
+      if (application === undefined) return { kind: "not_found" };
+      if (application.student_id !== studentId) return { kind: "forbidden" };
+      if (application.status !== "IN_PROGRESS") return { kind: "not_in_progress" };
+      return { kind: "withdrawn", application: withdraw.get({ id }) as ApplicationDbo };
+    },
+  );
 
   return {
     create,
+    withdraw: withdrawApplication,
     findByStudent: (studentId: number): ApplicationListItem[] => findByStudent.all({ studentId }),
   };
 };

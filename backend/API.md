@@ -235,3 +235,18 @@ l'étudiant est toujours celle de la session.
 - `403` `FORBIDDEN` : le profil connecté n'est pas étudiant.
 - `404` `OFFER_NOT_FOUND` : offre inconnue.
 - `409` `APPLICATION_EXISTS` : une candidature `IN_PROGRESS` existe déjà.
+
+## PATCH /applications/:id/withdraw
+
+Retire la candidature indiquée. Seul l'étudiant propriétaire peut effectuer cette action,
+et uniquement tant que son statut est `IN_PROGRESS`. La candidature est conservée dans
+l'historique et passe au statut `WITHDRAWN`.
+
+### Réponses
+
+- `200` : candidature mise à jour, au format de `POST /applications`
+- `400` `INVALID_APPLICATION_ID` : identifiant invalide
+- `401` `UNAUTHENTICATED` : session absente ou invalide
+- `403` `FORBIDDEN` : le profil n'est pas étudiant ou la candidature appartient à un autre étudiant
+- `404` `APPLICATION_NOT_FOUND` : candidature inconnue
+- `409` `APPLICATION_NOT_WITHDRAWABLE` : candidature déjà traitée ou déjà retirée

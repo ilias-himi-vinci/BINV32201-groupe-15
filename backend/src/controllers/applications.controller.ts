@@ -25,6 +25,14 @@ const readBody = (body: unknown): { offerId: number; message: string | null } =>
   return { offerId: value.offerId, message: value.message };
 };
 
+const readApplicationId = (value: string): number => {
+  const applicationId = Number(value);
+  if (!Number.isSafeInteger(applicationId) || applicationId <= 0) {
+    throw new HttpError(400, "INVALID_APPLICATION_ID", "L'identifiant de la candidature est invalide");
+  }
+  return applicationId;
+};
+
 export const createApplicationsRouter = (applicationsService: ApplicationsService) => {
   const router = Router();
 
@@ -37,6 +45,14 @@ export const createApplicationsRouter = (applicationsService: ApplicationsServic
     res.status(201).json(
       toApplicationDto(applicationsService.createApplication(getCurrentUser(req), offerId, message)),
     );
+  });
+
+  router.patch("/:id/withdraw", (req, res) => {
+    const application = applicationsService.withdrawApplication(
+      getCurrentUser(req),
+      readApplicationId(req.params.id),
+    );
+    res.json(toApplicationDto(application));
   });
 
   return router;

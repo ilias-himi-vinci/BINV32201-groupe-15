@@ -62,7 +62,7 @@ describe("ApplicationsPage", () => {
     expect(screen.getByText("Non retenue")).toBeInTheDocument();
     expect(screen.getByText("Retirée")).toBeInTheDocument();
     expect(screen.getAllByText("2025-2026")).toHaveLength(2);
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retirer" })).toBeInTheDocument();
   });
 
   it("affiche l'état vide", async () => {
@@ -80,5 +80,23 @@ describe("ApplicationsPage", () => {
     render(<ApplicationsPage token="jeton" onUnauthorized={onUnauthorized} />);
 
     await waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
+  });
+
+  it("demande confirmation puis retire une candidature en cours", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    stubFetch({
+      "/api/applications": () => Response.json(applications),
+      "/api/applications/4/withdraw": () =>
+        Response.json({ ...applications[1], status: "WITHDRAWN" }),
+    });
+
+    render(<ApplicationsPage token="jeton" onUnauthorized={vi.fn()} />);
+
+    await screen.findByText("Assistant conversationnel interne");
+    screen.getByRole("button", { name: "Retirer" }).click();
+
+    expect(confirm).toHaveBeenCalledWith("Retirer cette candidature ?");
+    await waitFor(() => expect(screen.getByText("Retirée")).toBeInTheDocument());
   });
 });

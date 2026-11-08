@@ -10,7 +10,10 @@ interface ApplicationsPageProps {
 }
 
 const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
-  const { applications, isLoading, error } = useApplications(token, onUnauthorized);
+  const { applications, isLoading, error, withdraw, isWithdrawing } = useApplications(
+    token,
+    onUnauthorized,
+  );
 
   return (
     <section>
@@ -22,7 +25,11 @@ const ApplicationsPage = ({ token, onUnauthorized }: ApplicationsPageProps) => {
         <EmptyState message="Aucune candidature à afficher." />
       )}
       {!isLoading && !error && applications.length > 0 && (
-        <ApplicationTable applications={applications} />
+        <ApplicationTable
+          applications={applications}
+          onWithdraw={withdraw}
+          isWithdrawing={isWithdrawing}
+        />
       )}
     </section>
   );
