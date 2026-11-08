@@ -171,3 +171,82 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 - `401` `UNAUTHENTICATED` : session absente ou invalide.
 - `403` `FORBIDDEN` : contact seulement promoteur ou signataire.
 - `400` `INVALID_QUERY` : `period` est inconnu ou invalide.
+
+## GET /applications
+
+Retourne tout l'historique des candidatures de l'étudiant connecté, trié par
+date de candidature décroissante. Aucun filtre d'année n'est appliqué.
+
+### Réponses
+
+- `200` : tableau de candidatures
+
+```json
+[
+  {
+    "id": 7,
+    "offerId": 1,
+    "offerTitle": "Gestion de flotte",
+    "companyShortName": "Lumen Digital",
+    "academicYear": "2026-2027",
+    "period": "P1",
+    "message": null,
+    "status": "IN_PROGRESS",
+    "appliedAt": "2026-11-08 16:00:00"
+  }
+]
+```
+
+`status` vaut `IN_PROGRESS` (en cours), `SELECTED` (retenue), `REJECTED`
+(non retenue) ou `WITHDRAWN` (retirée).
+
+- `401` `UNAUTHENTICATED` : session absente ou invalide.
+- `403` `FORBIDDEN` : le profil connecté n'est pas étudiant.
+
+## POST /applications
+
+Permet à l'étudiant connecté de candidater à une offre publiée. L'identité de
+l'étudiant est toujours celle de la session.
+
+### Requête
+
+- Header `Authorization` obligatoire
+- Corps JSON : `{ "offerId": 1, "message": "Message facultatif" }`
+- `message` est facultatif, une chaîne vide devient `null`, et sa longueur maximale
+  est de 500 caractères.
+
+### Réponses
+
+- `201` : candidature créée
+
+```json
+{
+  "id": 7,
+  "offerId": 1,
+  "message": "Message facultatif",
+  "status": "IN_PROGRESS",
+  "appliedAt": "2026-11-08 16:00:00"
+}
+```
+
+- `400` `INVALID_BODY`, `INVALID_OFFER_ID`, `INVALID_MESSAGE` ou
+  `OFFER_NOT_PUBLISHED`
+- `401` `UNAUTHENTICATED` : session absente ou invalide.
+- `403` `FORBIDDEN` : le profil connecté n'est pas étudiant.
+- `404` `OFFER_NOT_FOUND` : offre inconnue.
+- `409` `APPLICATION_EXISTS` : une candidature `IN_PROGRESS` existe déjà.
+
+## PATCH /applications/:id/withdraw
+
+Retire la candidature indiquée. Seul l'étudiant propriétaire peut effectuer cette action,
+et uniquement tant que son statut est `IN_PROGRESS`. La candidature est conservée dans
+l'historique et passe au statut `WITHDRAWN`.
+
+### Réponses
+
+- `200` : candidature mise à jour, au format de `POST /applications`
+- `400` `INVALID_APPLICATION_ID` : identifiant invalide
+- `401` `UNAUTHENTICATED` : session absente ou invalide
+- `403` `FORBIDDEN` : le profil n'est pas étudiant ou la candidature appartient à un autre étudiant
+- `404` `APPLICATION_NOT_FOUND` : candidature inconnue
+- `409` `APPLICATION_NOT_WITHDRAWABLE` : candidature déjà traitée ou déjà retirée

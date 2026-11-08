@@ -1,0 +1,8 @@
+export const APPLICATION_STATUSES = [
+  "IN_PROGRESS",
+  "SELECTED",
+  "REJECTED",
+  "WITHDRAWN",
+] as const;
+
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
