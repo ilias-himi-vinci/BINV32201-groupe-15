@@ -86,3 +86,31 @@ describe("POST /applications", () => {
     expect(second.body.id).not.toBe(first.body.id);
   });
 });
+
+describe("GET /applications", () => {
+  it("retourne uniquement les candidatures de l'étudiant, de la plus récente à la plus ancienne", async () => {
+    const response = await request(app)
+      .get("/applications")
+      .set("Authorization", tokenFor("STUDENT", STUDENT.MATEUSZ_KOWALSKI));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual([
+      expect.objectContaining({
+        id: 3,
+        offerId: OFFER.CLOUD_MIGRATION,
+        offerTitle: "Migration d'une application vers le cloud",
+        status: "SELECTED",
+        academicYear: "2026-2027",
+      }),
+    ]);
+  });
+
+  it("refuse la consultation aux profils non étudiants", async () => {
+    const response = await request(app)
+      .get("/applications")
+      .set("Authorization", tokenFor("ADMIN", 1));
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("FORBIDDEN");
+  });
+});

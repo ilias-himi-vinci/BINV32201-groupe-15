@@ -1,5 +1,6 @@
 import type { Db } from "../db/database.ts";
 import type { ApplicationDbo } from "../models/application.ts";
+import type { ApplicationListItem } from "../models/application.ts";
 
 export type CreateApplicationResult =
   | { kind: "created"; application: ApplicationDbo }
@@ -25,6 +26,18 @@ export const createApplicationsRepository = (db: Db) => {
     VALUES (@offerId, @studentId, @message)
     RETURNING id, offer_id, student_id, message, status, applied_at
   `);
+  const findByStudent = db.prepare<{ studentId: number }, ApplicationListItem>(`
+    SELECT a.id, a.offer_id AS offerId, a.message, a.status,
+           a.applied_at AS appliedAt, o.title AS offerTitle, c.short_name AS companyShortName,
+           ay.label AS academicYear, p.code AS period
+    FROM applications a
+    JOIN offers o ON o.id = a.offer_id
+    JOIN companies c ON c.id = o.company_id
+    JOIN academic_years ay ON ay.id = o.academic_year_id
+    JOIN periods p ON p.id = o.period_id
+    WHERE a.student_id = @studentId
+    ORDER BY datetime(a.applied_at) DESC, a.id DESC
+  `);
 
   const create = db.transaction((params: ApplicationParams): CreateApplicationResult => {
     const offer = findOffer.get({ offerId: params.offerId });
@@ -35,7 +48,10 @@ export const createApplicationsRepository = (db: Db) => {
     return { kind: "created", application: insert.get(params) as ApplicationDbo };
   });
 
-  return { create };
+  return {
+    create,
+    findByStudent: (studentId: number): ApplicationListItem[] => findByStudent.all({ studentId }),
+  };
 };
 
 export type ApplicationsRepository = ReturnType<typeof createApplicationsRepository>;

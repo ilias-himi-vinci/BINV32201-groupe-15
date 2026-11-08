@@ -1,4 +1,4 @@
-import type { Application, ApplicationDbo } from "../models/application.ts";
+import type { Application, ApplicationDbo, ApplicationListItem } from "../models/application.ts";
 
 export const toApplication = (row: ApplicationDbo): Application => ({
   id: row.id,
@@ -9,3 +9,5 @@ export const toApplication = (row: ApplicationDbo): Application => ({
 });
 
 export const toApplicationDto = (application: Application) => application;
+
+export const toApplicationListItem = (row: ApplicationListItem): ApplicationListItem => row;

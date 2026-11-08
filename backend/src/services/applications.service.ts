@@ -1,11 +1,18 @@
-import { toApplication } from "../mappers/application.mapper.ts";
-import type { Application } from "../models/application.ts";
+import { toApplication, toApplicationListItem } from "../mappers/application.mapper.ts";
+import type { Application, ApplicationListItem } from "../models/application.ts";
 import type { ApplicationsRepository } from "../repositories/applications.repository.ts";
 import type { User } from "../models/user.ts";
 import { isStudent } from "./permissions.ts";
 import { HttpError } from "../utils/httpError.ts";
 
 export const createApplicationsService = (repository: ApplicationsRepository) => ({
+  listApplications: (viewer: User): ApplicationListItem[] => {
+    if (!isStudent(viewer)) {
+      throw new HttpError(403, "FORBIDDEN", "Seul un étudiant peut consulter ses candidatures");
+    }
+    return repository.findByStudent(viewer.id).map(toApplicationListItem);
+  },
+
   createApplication: (viewer: User, offerId: number, message: string | null): Application => {
     if (!isStudent(viewer)) {
       throw new HttpError(403, "FORBIDDEN", "Seul un étudiant peut candidater");
