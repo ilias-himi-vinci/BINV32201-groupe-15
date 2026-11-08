@@ -22,6 +22,15 @@ const offers = [
   },
 ];
 
+const publishedOffer = {
+  id: 7,
+  title: "Assistant conversationnel interne",
+  companyShortName: "Brikk",
+  academicYear: "2026-2027",
+  period: "P2",
+  status: "PUBLISHED",
+};
+
 describe("OffersPage", () => {
   it("affiche les offres avec leurs libellés français", async () => {
     stubFetch({ "/api/offers": () => Response.json(offers) });
@@ -85,5 +94,73 @@ describe("OffersPage", () => {
       "/api/offers?period=P1",
       expect.objectContaining({ headers: { Authorization: "jeton" } }),
     );
+  });
+
+  it("permet à un étudiant de candidater avec un message facultatif", async () => {
+    const fetchMock = stubFetch({
+      "/api/applications": () => Response.json({
+        id: 10,
+        offerId: publishedOffer.id,
+        message: "Je suis motivé.",
+        status: "IN_PROGRESS",
+        appliedAt: "2026-11-08 16:00:00",
+      }, { status: 201 }),
+      "/api/offers": () => Response.json([publishedOffer]),
+    });
+
+    render(<OffersPage user={studentUser} token="jeton" onUnauthorized={vi.fn()} />);
+    await screen.findByText(publishedOffer.title);
+    fireEvent.click(screen.getByRole("button", { name: "Candidater" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Message (facultatif)" }), {
+      target: { value: "Je suis motivé." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer ma candidature" }));
+
+    await waitFor(() => expect(screen.getByText("Candidature envoyée")).toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/applications",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ offerId: publishedOffer.id, message: "Je suis motivé." }),
+      }),
+    );
+  });
+
+  it("n'affiche pas l'action de candidature aux contacts", async () => {
+    stubFetch({ "/api/offers": () => Response.json([publishedOffer]) });
+
+    render(<OffersPage user={contactUser} token="jeton" onUnauthorized={vi.fn()} />);
+
+    await screen.findByText(publishedOffer.title);
+    expect(screen.queryByRole("button", { name: "Candidater" })).not.toBeInTheDocument();
+  });
+
+  it("affiche une erreur métier lors du refus de candidature", async () => {
+    stubFetch({
+      "/api/applications": () => new Response(null, { status: 409 }),
+      "/api/offers": () => Response.json([publishedOffer]),
+    });
+
+    render(<OffersPage user={studentUser} token="jeton" onUnauthorized={vi.fn()} />);
+    await screen.findByText(publishedOffer.title);
+    fireEvent.click(screen.getByRole("button", { name: "Candidater" }));
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer ma candidature" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("statut 409");
+  });
+
+  it("signale une session expirée lors de la candidature", async () => {
+    const onUnauthorized = vi.fn();
+    stubFetch({
+      "/api/applications": () => new Response(null, { status: 401 }),
+      "/api/offers": () => Response.json([publishedOffer]),
+    });
+
+    render(<OffersPage user={studentUser} token="jeton" onUnauthorized={onUnauthorized} />);
+    await screen.findByText(publishedOffer.title);
+    fireEvent.click(screen.getByRole("button", { name: "Candidater" }));
+    fireEvent.click(screen.getByRole("button", { name: "Envoyer ma candidature" }));
+
+    await waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
   });
 });

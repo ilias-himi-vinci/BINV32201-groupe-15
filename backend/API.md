@@ -171,3 +171,36 @@ récente à la plus ancienne, puis de la plus récente à la plus ancienne.
 - `401` `UNAUTHENTICATED` : session absente ou invalide.
 - `403` `FORBIDDEN` : contact seulement promoteur ou signataire.
 - `400` `INVALID_QUERY` : `period` est inconnu ou invalide.
+
+## POST /applications
+
+Permet à l'étudiant connecté de candidater à une offre publiée. L'identité de
+l'étudiant est toujours celle de la session.
+
+### Requête
+
+- Header `Authorization` obligatoire
+- Corps JSON : `{ "offerId": 1, "message": "Message facultatif" }`
+- `message` est facultatif, une chaîne vide devient `null`, et sa longueur maximale
+  est de 500 caractères.
+
+### Réponses
+
+- `201` : candidature créée
+
+```json
+{
+  "id": 7,
+  "offerId": 1,
+  "message": "Message facultatif",
+  "status": "IN_PROGRESS",
+  "appliedAt": "2026-11-08 16:00:00"
+}
+```
+
+- `400` `INVALID_BODY`, `INVALID_OFFER_ID`, `INVALID_MESSAGE` ou
+  `OFFER_NOT_PUBLISHED`
+- `401` `UNAUTHENTICATED` : session absente ou invalide.
+- `403` `FORBIDDEN` : le profil connecté n'est pas étudiant.
+- `404` `OFFER_NOT_FOUND` : offre inconnue.
+- `409` `APPLICATION_EXISTS` : une candidature `IN_PROGRESS` existe déjà.
