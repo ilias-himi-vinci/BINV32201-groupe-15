@@ -69,6 +69,21 @@ describe("POST /applications", () => {
     expect(response.body.error.code).toBe("INVALID_MESSAGE");
   });
 
+  it.each([
+    ["un corps vide", undefined, "INVALID_BODY"],
+    ["un identifiant de candidature textuel", { offerId: "1" }, "INVALID_OFFER_ID"],
+    ["un identifiant négatif", { offerId: -1 }, "INVALID_OFFER_ID"],
+    ["un message non textuel", { offerId: OFFER.DATA_QUALITY, message: 42 }, "INVALID_MESSAGE"],
+  ])("refuse %s avant la création de candidature (400)", async (_case, body, code) => {
+    const response = await request(app)
+      .post("/applications")
+      .set("Authorization", tokenFor("STUDENT", STUDENT.MATEUSZ_KOWALSKI))
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe(code);
+  });
+
   it("refuse un doublon actif", async () => {
     const response = await applyAs(STUDENT.MATEUSZ_KOWALSKI, { offerId: OFFER.FLEET_APP });
     expect(response.status).toBe(201);
@@ -138,6 +153,24 @@ describe("PATCH /applications/:id/withdraw", () => {
 
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("FORBIDDEN");
+  });
+
+  it.each(["0", "-1", "abc"])("refuse un identifiant de candidature invalide (%s) (400)", async (id) => {
+    const response = await request(app)
+      .patch(`/applications/${id}/withdraw`)
+      .set("Authorization", tokenFor("STUDENT", STUDENT.LUCAS_DUPONT));
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_APPLICATION_ID");
+  });
+
+  it("retourne 404 pour une candidature inconnue", async () => {
+    const response = await request(app)
+      .patch("/applications/999/withdraw")
+      .set("Authorization", tokenFor("STUDENT", STUDENT.LUCAS_DUPONT));
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("APPLICATION_NOT_FOUND");
   });
 
   it.each([

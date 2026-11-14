@@ -87,11 +87,13 @@ describe("GET /companies : recherche", () => {
     expect((await search("   ")).body).toHaveLength(13);
   });
 
-  it("refuse une recherche trop longue", async () => {
-    const response = await search("a".repeat(101));
+  it("accepte une recherche de 100 caractères et refuse 101", async () => {
+    const valid = await search("a".repeat(100));
+    const invalid = await search("a".repeat(101));
 
-    expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe("INVALID_QUERY");
+    expect(valid.status).toBe(200);
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe("INVALID_QUERY");
   });
 
   it("refuse un paramètre q répété", async () => {

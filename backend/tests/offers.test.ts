@@ -115,6 +115,20 @@ describe("GET /offers : visibilité selon le profil", () => {
     expect(studentResponse.body.every((offer: { period: string }) => offer.period === "P2")).toBe(true);
   });
 
+  it("accepte une absence de filtre de période et refuse les valeurs vides ou répétées", async () => {
+    const noFilter = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ);
+    const empty = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ).query({ period: "" });
+    const repeated = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ).query({
+      period: ["P1", "P2"],
+    });
+
+    expect(noFilter.status).toBe(200);
+    expect(empty.status).toBe(400);
+    expect(empty.body.error.code).toBe("INVALID_QUERY");
+    expect(repeated.status).toBe(400);
+    expect(repeated.body.error.code).toBe("INVALID_QUERY");
+  });
+
   it.each(["UNKNOWN", ""])("refuse une période inconnue (%s) (400)", async (period) => {
     const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ).query({ period });
 
