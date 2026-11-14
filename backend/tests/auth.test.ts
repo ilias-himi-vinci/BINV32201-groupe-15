@@ -137,6 +137,16 @@ describe("GET /auth/me", () => {
     expect((await me(token)).status).toBe(401);
   });
 
+  it("refuse une route protégée quand le compte est désactivé après l'authentification", async () => {
+    const token = tokenFor("STUDENT", STUDENT.LUCAS_DUPONT);
+    db.prepare("UPDATE students SET status = 'INACTIVE' WHERE id = ?").run(STUDENT.LUCAS_DUPONT);
+
+    const response = await request(app).get("/companies").set("Authorization", token);
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("UNAUTHENTICATED");
+  });
+
   it("relit les rôles en base à chaque requête", async () => {
     const token = tokenFor("CONTACT", CONTACT.NADIA_CHERIF);
     db.prepare("DELETE FROM contact_roles WHERE contact_id = ? AND role = 'SIGNATORY'").run(

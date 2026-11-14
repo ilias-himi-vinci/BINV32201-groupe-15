@@ -82,6 +82,39 @@ describe("ApplicationsPage", () => {
     await waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
   });
 
+  it("affiche une erreur si le retrait est refusé au niveau métier", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    stubFetch({
+      "/api/applications": () => Response.json(applications),
+      "/api/applications/4/withdraw": () => new Response(null, { status: 409 }),
+    });
+
+    render(<ApplicationsPage token="jeton" onUnauthorized={vi.fn()} />);
+
+    await screen.findByText("Assistant conversationnel interne");
+    screen.getByRole("button", { name: "Retirer" }).click();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("statut 409"));
+  });
+
+  it("signale une session expirée lors du retrait d'une candidature", async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+    const onUnauthorized = vi.fn();
+    stubFetch({
+      "/api/applications": () => Response.json(applications),
+      "/api/applications/4/withdraw": () => new Response(null, { status: 401 }),
+    });
+
+    render(<ApplicationsPage token="jeton" onUnauthorized={onUnauthorized} />);
+
+    await screen.findByText("Assistant conversationnel interne");
+    screen.getByRole("button", { name: "Retirer" }).click();
+
+    await waitFor(() => expect(onUnauthorized).toHaveBeenCalled());
+  });
+
   it("demande confirmation puis retire une candidature en cours", async () => {
     const confirm = vi.fn(() => true);
     vi.stubGlobal("confirm", confirm);
