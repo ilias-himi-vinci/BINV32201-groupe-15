@@ -8,9 +8,12 @@ import { isUnauthorized } from "../utils/api.ts";
  * Offres visibles par l'utilisateur, choisies par le backend selon son profil.
  * onUnauthorized doit être stable (useCallback) pour ne pas relancer le chargement.
  */
+const SEARCH_DELAY_MS = 300;
+
 export const useOffers = (
   token: string,
   period: PeriodCode | undefined,
+  search: string,
   onUnauthorized: () => void,
 ) => {
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -20,27 +23,36 @@ export const useOffers = (
   useEffect(() => {
     const controller = new AbortController();
 
-    getOffers(token, period, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setOffers(data);
-          setError(null);
-        }
-      })
-      .catch((reason: unknown) => {
-        if (controller.signal.aborted) return;
-        if (isUnauthorized(reason)) {
-          onUnauthorized();
-        } else {
-          setError(reason instanceof Error ? reason.message : "Erreur inconnue");
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false);
-      });
+    const load = () => {
+      setIsLoading(true);
+      setError(null);
+      getOffers(token, period, search, controller.signal)
+        .then((data) => {
+          if (!controller.signal.aborted) {
+            setOffers(data);
+            setError(null);
+          }
+        })
+        .catch((reason: unknown) => {
+          if (controller.signal.aborted) return;
+          if (isUnauthorized(reason)) {
+            onUnauthorized();
+          } else {
+            setError(reason instanceof Error ? reason.message : "Erreur inconnue");
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setIsLoading(false);
+        });
+    };
 
-    return () => controller.abort();
-  }, [token, period, onUnauthorized]);
+    const timeoutId = window.setTimeout(load, search.trim() === "" ? 0 : SEARCH_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [token, period, search, onUnauthorized]);
 
   return { offers, isLoading, error };
 };
