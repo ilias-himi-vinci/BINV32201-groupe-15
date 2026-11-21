@@ -136,3 +136,57 @@ describe("GET /offers : visibilité selon le profil", () => {
     expect(response.body.error.code).toBe("INVALID_QUERY");
   });
 });
+
+describe("GET /offers : recherche par titre", () => {
+  it("cherche sans tenir compte de la casse et ignore les espaces autour", async () => {
+    const response = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+      .query({ q: "  TABLEAU DE BORD  " });
+
+    expect(response.status).toBe(200);
+    expect(offerIds(response.body)).toEqual([OFFER.DATA_QUALITY]);
+  });
+
+  it("recherche l'expression complète et renvoie une liste vide sans correspondance", async () => {
+    const complete = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+      .query({ q: "portail client" });
+    const reversed = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+      .query({ q: "client portail" });
+
+    expect(offerIds(complete.body)).toEqual([OFFER.CLIENT_PORTAL]);
+    expect(reversed.body).toEqual([]);
+  });
+
+  it("ignore une recherche vide et combine recherche et période", async () => {
+    const empty = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+      .query({ q: "   " });
+    const combined = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+      .query({ period: "P1", q: "rapports" });
+
+    expect(empty.status).toBe(200);
+    expect(empty.body).toHaveLength(10);
+    expect(combined.status).toBe(200);
+    expect(offerIds(combined.body)).toEqual([OFFER.PDF_REPORTS]);
+  });
+
+  it("combine recherche et visibilité étudiant", async () => {
+    const publishedMatch = await listOffersAs("STUDENT", STUDENT.LUCAS_DUPONT)
+      .query({ q: "qualité" });
+    const hiddenMatch = await listOffersAs("STUDENT", STUDENT.LUCAS_DUPONT)
+      .query({ q: "portail" });
+
+    expect(offerIds(publishedMatch.body)).toEqual([OFFER.DATA_QUALITY]);
+    expect(publishedMatch.body.every((offer: { status: string }) => offer.status === "PUBLISHED")).toBe(true);
+    expect(hiddenMatch.body).toEqual([]);
+  });
+
+  it("accepte une recherche de 100 caractères et refuse 101", async () => {
+    const valid = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+      .query({ q: "a".repeat(100) });
+    const invalid = await listOffersAs("ADMIN", ADMINISTRATOR.ANNE_LECLERCQ)
+      .query({ q: "a".repeat(101) });
+
+    expect(valid.status).toBe(200);
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe("INVALID_QUERY");
+  });
+});

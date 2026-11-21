@@ -128,6 +128,31 @@ describe("GET /applications", () => {
     expect(response.status).toBe(403);
     expect(response.body.error.code).toBe("FORBIDDEN");
   });
+
+  it("retourne plusieurs candidatures de l'étudiant connecté triées du plus récent au plus ancien", async () => {
+    db.prepare("DELETE FROM applications").run();
+
+    const insert = db.prepare(`
+      INSERT INTO applications (id, offer_id, student_id, message, status, applied_at)
+      VALUES (@id, @offerId, @studentId, NULL, 'IN_PROGRESS', @appliedAt)
+    `);
+
+    insert.run({ id: 101, offerId: OFFER.FLEET_APP, studentId: STUDENT.LUCAS_DUPONT, appliedAt: "2026-11-10 09:00:00" });
+    insert.run({ id: 102, offerId: OFFER.CLIENT_PORTAL, studentId: STUDENT.LUCAS_DUPONT, appliedAt: "2026-11-12 09:00:00" });
+    insert.run({ id: 103, offerId: OFFER.BILLING_API, studentId: STUDENT.LUCAS_DUPONT, appliedAt: "2026-11-11 09:00:00" });
+    insert.run({ id: 104, offerId: OFFER.DATA_QUALITY, studentId: STUDENT.MATEUSZ_KOWALSKI, appliedAt: "2026-11-13 09:00:00" });
+
+    const response = await request(app)
+      .get("/applications")
+      .set("Authorization", tokenFor("STUDENT", STUDENT.LUCAS_DUPONT));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(3);
+    expect(response.body.map((application: { id: number }) => application.id)).toEqual([102, 103, 101]);
+    expect(response.body).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 104 })]),
+    );
+  });
 });
 
 describe("PATCH /applications/:id/withdraw", () => {
